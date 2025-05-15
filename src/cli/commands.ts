@@ -17,6 +17,8 @@ export interface Options {
   subject?: string;
   up?: boolean;
   down?: boolean;
+  singleQuotes?: boolean;
+  semi?: boolean;
   [key: string]: unknown;
 }
 
@@ -30,7 +32,9 @@ const OptionsSchema = z.object({
   type: z.enum(['node']).optional(),
   subject: z.string().optional(),
   up: z.boolean().optional(),
-  down: z.boolean().optional()
+  down: z.boolean().optional(),
+  singleQuotes: z.boolean().optional(),
+  semi: z.boolean().optional()
 }).strict().catchall(z.unknown());
 
 /**
@@ -221,6 +225,78 @@ export async function handleUpdateVersionPart(
       error(`Failed to update version: ${err.message}`);
     } else {
       error('Failed to update version: Unknown error');
+    }
+  }
+}
+
+/**
+ * Create TypeScript version file handler
+ * Creates a TypeScript file with a version constant
+ */
+export async function handleCreateTsVersion(targetPath: string, options: Options): Promise<void> {
+  // Validate input parameters
+  if (!validateParams([PathSchema, OptionsSchema], [targetPath, options])) {
+    return;
+  }
+
+  try {
+    // Determine package.json path
+    const packagePath = options.package || findPackageJson(process.cwd());
+    if (!packagePath) {
+      error('No package.json found. Please specify with --package option.');
+      return;
+    }
+
+    // Validate package.json exists
+    if (!validatePath(packagePath, 'file')) {
+      return;
+    }
+
+    // Read the version from package.json
+    const version = readPackageVersion(packagePath);
+    if (!version) {
+      return;
+    }
+
+    const versionString = formatVersion(version);
+
+    // Format options
+    const quote = options.singleQuotes ? '\'' : '"';
+    const semi = options.semi ? ';' : '';
+
+    // Create TypeScript content
+    const tsContent = `const version = ${quote}${versionString}${quote}${semi}\n\nexport default version${semi}\n`;
+
+    const spinner = createSpinner('Creating TypeScript version file...');
+    spinner.start();
+
+    try {
+      // Ensure directory exists
+      const targetDir = path.dirname(targetPath);
+      if (!fs.existsSync(targetDir)) {
+        fs.mkdirSync(targetDir, { recursive: true });
+      }
+
+      // Write the file
+      fs.writeFileSync(targetPath, tsContent, 'utf-8');
+      spinner.succeed(`Successfully created TypeScript version file at ${targetPath}`);
+
+      // Display info about the file
+      info('File contents:');
+      info(`  const version = ${quote}${versionString}${quote}${semi}`);
+      info(`  export default version${semi}`);
+    } catch (writeError) {
+      if (writeError instanceof Error) {
+        spinner.fail(`Failed to create file: ${writeError.message}`);
+      } else {
+        spinner.fail('Failed to create file: Unknown error');
+      }
+    }
+  } catch (err: unknown) {
+    if (err instanceof Error) {
+      error(`Failed to create TypeScript version file: ${err.message}`);
+    } else {
+      error('Failed to create TypeScript version file: Unknown error');
     }
   }
 }

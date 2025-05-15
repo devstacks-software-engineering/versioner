@@ -10,7 +10,7 @@
 import { program } from 'commander';
 import path from 'node:path';
 import fs from 'node:fs';
-import { handleCopyTo, handleUpdateVersionPart } from './cli/commands.js';
+import { handleCopyTo, handleCreateTsVersion, handleUpdateVersionPart } from './cli/commands.js';
 
 // Get package version
 const packageJson = JSON.parse(
@@ -70,6 +70,17 @@ program
   .option('--up', 'Increment patch version (default)')
   .option('--down', 'Decrement patch version')
   .action((options) => handleUpdateVersionPart('patch', options));
+
+/**
+ * Create TypeScript file with version command
+ */
+program
+  .command('create-ts')
+  .description('Create a TypeScript file with the version as a constant')
+  .argument('<target>', 'Target TypeScript file to create')
+  .option('--single-quotes', 'Use single quotes instead of double quotes')
+  .option('--semi', 'Include semicolons')
+  .action((target, options) => handleCreateTsVersion(target, options));
 
 /**
  * Process the provided command-line arguments
